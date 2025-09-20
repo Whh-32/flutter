@@ -27,8 +27,8 @@ class InitVisitInfoPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                     labelText: "اطلاعات اولیه",
-                    labelStyle: TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold)),
+                    labelStyle:
+                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 child: Column(
                   children: [
                     SizedBox(
@@ -59,8 +59,8 @@ class InitVisitInfoPage extends StatelessWidget {
                           height: 60,
                           child: TextField(
                             readOnly: true,
-                            controller: TextEditingController(
-                                text: initVisitInfo.name),
+                            controller:
+                                TextEditingController(text: initVisitInfo.name),
                             decoration: InputDecoration(
                               labelText: "نام و نام خانوادگی",
                               border: OutlineInputBorder(
@@ -93,8 +93,8 @@ class InitVisitInfoPage extends StatelessWidget {
                           height: 60,
                           child: TextField(
                             readOnly: true,
-                            controller: TextEditingController(
-                                text: initVisitInfo.city),
+                            controller:
+                                TextEditingController(text: initVisitInfo.city),
                             decoration: InputDecoration(
                               labelText: "شهرستان",
                               border: OutlineInputBorder(
@@ -123,8 +123,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         ),
                         TextField(
                           readOnly: true,
-                          controller: TextEditingController(
-                              text: initVisitInfo.mobile),
+                          controller:
+                              TextEditingController(text: initVisitInfo.mobile),
                           decoration: InputDecoration(
                             labelText: "َشماره تلفن",
                             border: OutlineInputBorder(
@@ -137,8 +137,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         ),
                         TextField(
                           readOnly: true,
-                          controller: TextEditingController(
-                              text: initVisitInfo.rahbar),
+                          controller:
+                              TextEditingController(text: initVisitInfo.rahbar),
                           decoration: InputDecoration(
                             labelText: "َراهبر اصلی",
                             border: OutlineInputBorder(
@@ -170,8 +170,8 @@ class InitVisitInfoPage extends StatelessWidget {
                       child: TextField(
                         readOnly: true,
                         canRequestFocus: false,
-                        controller: TextEditingController(
-                            text: initVisitInfo.vDate),
+                        controller:
+                            TextEditingController(text: initVisitInfo.vDate),
                         decoration: InputDecoration(
                           labelText: "تاریخ بازدید",
                           border: OutlineInputBorder(
@@ -190,8 +190,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "نوع طرح",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -264,10 +264,9 @@ class InitVisitInfoPage extends StatelessWidget {
                         SizedBox(
                           height: 70,
                           child: DropdownButtonFormField<String>(
-                            value:
-                                (initVisitInfo.malekiyat ?? "").isNotEmpty
-                                    ? initVisitInfo.malekiyat
-                                    : null,
+                            value: (initVisitInfo.malekiyat ?? "").isNotEmpty
+                                ? initVisitInfo.malekiyat
+                                : null,
                             decoration: InputDecoration(
                               labelText: "نوع  مالکبت دام/طیور",
                               border: OutlineInputBorder(
@@ -309,8 +308,8 @@ class InitVisitInfoPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20.0),
                     ),
                     labelText: "اطلاعات جایگاه",
-                    labelStyle: TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold)),
+                    labelStyle:
+                        TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 child: Column(
                   children: [
                     SizedBox(
@@ -323,8 +322,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "وضعیت جایگاه نگهداری دام",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -350,8 +349,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "نوع جایگاه",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -377,8 +376,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "کیفیت آب",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
@@ -404,19 +403,18 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "منبع تامین آب",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
                         ),
-                        items:
-                            ["شهری", "چاه", "روستایی", "انتقال با تانکر"]
-                                .map((e) => DropdownMenuItem<String>(
-                                      value: e,
-                                      child: Text(e),
-                                    ))
-                                .toList(),
+                        items: ["شهری", "چاه", "روستایی", "انتقال با تانکر"]
+                            .map((e) => DropdownMenuItem<String>(
+                                  value: e,
+                                  child: Text(e),
+                                ))
+                            .toList(),
                         onChanged: (value) {
                           // _tamin_water.text = value!;
                         },
@@ -432,8 +430,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "آجر معدنی",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
@@ -462,8 +460,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "سنگ نمک",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
@@ -492,8 +490,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "ادوات",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
@@ -526,8 +524,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "کف جایگاه",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
@@ -562,8 +560,8 @@ class InitVisitInfoPage extends StatelessWidget {
                         decoration: InputDecoration(
                           labelText: "وضعیت اجرای طرح",
                           border: OutlineInputBorder(
-                            borderSide: const BorderSide(
-                                width: 2, color: Colors.red),
+                            borderSide:
+                                const BorderSide(width: 2, color: Colors.red),
                             //<-- SEE HERE
                             borderRadius: BorderRadius.circular(20.0),
                           ),
@@ -598,8 +596,8 @@ class InitVisitInfoPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20.0),
                   ),
                   labelText: "ایرادات جایگاه",
-                  labelStyle: TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold),
+                  labelStyle:
+                      TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 child: Column(
                   children: [
@@ -609,23 +607,20 @@ class InitVisitInfoPage extends StatelessWidget {
                     TitleCheckBox("عدم حصارکشی مناسب", (c) {
                       // _adam_hesar = c ? 1 : 0;
                     }, value: initVisitInfo.adamHesar == 1),
-                    TitleCheckBox(
-                        "آسترکشی دیوارهای داخلی جایگاه انجام نشده", (c) {
+                    TitleCheckBox("آسترکشی دیوارهای داخلی جایگاه انجام نشده",
+                        (c) {
                       // _astarkeshi = c ? 1 : 0;
                     }, value: initVisitInfo.astarkeshi! == 1),
-                    TitleCheckBox("محل نگهداری خوراک دام مناسب نیست",
-                        (c) {
+                    TitleCheckBox("محل نگهداری خوراک دام مناسب نیست", (c) {
                       // _mahal_negahdari = c ? 1 : 0;
                     }, value: initVisitInfo.mahalNegahdari! == 1),
                     TitleCheckBox("عدم وجود آبخور وآبشخور مناسب ", (c) {
                       // _adam_abkhor = c ? 1 : 0;
                     }, value: initVisitInfo.adamAbkhor! == 1),
-                    TitleCheckBox("عدم برخورداری جایگاه از نور مناسب ",
-                        (c) {
+                    TitleCheckBox("عدم برخورداری جایگاه از نور مناسب ", (c) {
                       // _adam_noor = c ? 1 : 0;
                     }, value: initVisitInfo.adamNoor! == 1),
-                    TitleCheckBox("عدم برخورداری جایگاه از تهویه لازم ",
-                        (c) {
+                    TitleCheckBox("عدم برخورداری جایگاه از تهویه لازم ", (c) {
                       // _adam_tahvie = c ? 1 : 0;
                     }, value: initVisitInfo.adamTahvie! == 1),
                     SizedBox(
@@ -634,8 +629,8 @@ class InitVisitInfoPage extends StatelessWidget {
                     TextField(
                       maxLines: 4,
                       readOnly: true,
-                      controller: TextEditingController(
-                          text: initVisitInfo.sayer),
+                      controller:
+                          TextEditingController(text: initVisitInfo.sayer),
                       decoration: InputDecoration(
                         labelText: "سایر ایرادات",
                         border: OutlineInputBorder(
@@ -647,8 +642,8 @@ class InitVisitInfoPage extends StatelessWidget {
                       height: 10,
                     ),
                     TextField(
-                      controller: TextEditingController(
-                          text: initVisitInfo.eghdamat),
+                      controller:
+                          TextEditingController(text: initVisitInfo.eghdamat),
                       maxLines: 4,
                       decoration: InputDecoration(
                         labelText:
