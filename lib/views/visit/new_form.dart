@@ -622,8 +622,7 @@ class _NewFormState extends State<NewForm> {
 
             // Description
             if (description.isNotEmpty) ...[
-              Card(
-                elevation: 2,
+              buildStepWrapper(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -746,7 +745,7 @@ class _NewFormState extends State<NewForm> {
 
       return Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.only(top: 5),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
         ),
