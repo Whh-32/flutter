@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:frappe_app/services/sales_form_service.dart';
+import 'package:frappe_app/views/desk/desk_view.dart';
 import 'dart:async';
 
 class NewForm extends StatefulWidget {
@@ -64,15 +65,16 @@ class _NewFormState extends State<NewForm> {
   }
 
   Widget buildStepWrapper({required Widget child}) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    return Container(
+      padding: const EdgeInsets.all(8),
+      child: Container(
+        decoration: BoxDecoration(
+            border: Border.all(),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10)),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(10),
           child: SingleChildScrollView(
-            // ✅ added scroll
             child: child,
           ),
         ),
@@ -145,74 +147,42 @@ class _NewFormState extends State<NewForm> {
         child: Column(
           children: [
             const Text("📋 اطلاعات خریدار",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 24),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
             Card(
-              elevation: 3,
+              elevation: 2,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.blue.shade100, width: 1)),
+                  borderRadius: BorderRadius.circular(12)),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _buildInfoRow("👤", "نام", buyerInfo?["name"]),
-                    const Divider(height: 24),
-                    _buildInfoRow("🏛️", "استان", buyerInfo?["province"]),
-                    const Divider(height: 24),
-                    _buildInfoRow("🏙️", "شهر", buyerInfo?["city"]),
-                    const Divider(height: 24),
-                    _buildInfoRow("🆔", "کد ملی", buyerInfo?["national_id"]),
-                    const Divider(height: 24),
-                    _buildInfoRow(
-                        "💰",
-                        "اعتبار",
-                        buyerInfo?["credit"] != null
-                            ? "${buyerInfo!["credit"]} تومان"
-                            : null,
-                        isHighlighted: true),
+                    _buildInfoRow("نام", buyerInfo?["name"]),
+                    const Divider(),
+                    _buildInfoRow("استان", buyerInfo?["province"]),
+                    const Divider(),
+                    _buildInfoRow("شهر", buyerInfo?["city"]),
+                    const Divider(),
+                    _buildInfoRow("کد ملی", buyerInfo?["national_id"]),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-            Container(
-              decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.blue.shade100,
-                        blurRadius: 8,
-                        offset: const Offset(0, 4))
-                  ]),
-              child: buildNextButton(() => step.value++),
-            ),
+            const SizedBox(height: 20),
+            buildNextButton(() => step.value++),
           ],
         ),
       );
 
-  Widget _buildInfoRow(String emoji, String label, String? value,
-      {bool isHighlighted = false}) {
+  Widget _buildInfoRow(String label, String? value) {
     return Row(
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 20)),
-        const SizedBox(width: 16),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-              const SizedBox(height: 4),
-              Text(value ?? "نامشخص",
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isHighlighted
-                          ? Colors.green.shade700
-                          : Colors.black87)),
-            ],
-          ),
+          child: Text(label, style: TextStyle(fontSize: 14)),
+        ),
+        Expanded(
+          child: Text(value ?? "نامشخص",
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -222,67 +192,33 @@ class _NewFormState extends State<NewForm> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _salesFormService.fetchSellers(buyerNationalId),
       builder: (_, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return buildStepWrapper(
-              child: const Center(child: CircularProgressIndicator()));
-        }
-        if (snapshot.hasError) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Fluttertoast.showToast(
-                msg:
-                    "خطا در دریافت لیست فروشندگان: ${snapshot.error.toString().replaceFirst('Exception: ', '')}");
-          });
-          return buildStepWrapper(
-            child: Column(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 50),
-                const SizedBox(height: 16),
-                Text(
-                    "خطا در دریافت اطلاعات: ${snapshot.error.toString().replaceFirst('Exception: ', '')}",
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                    onPressed: () => setState(() {}),
-                    child: const Text("تلاش مجدد")),
-              ],
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           );
         }
-        if (snapshot.hasData) {
-          final data = snapshot.data!;
-          if (data.isEmpty) {
-            return buildStepWrapper(
-              child: const Column(
-                children: [
-                  Icon(Icons.warning_amber, color: Colors.orange, size: 50),
-                  SizedBox(height: 16),
-                  Text("هیچ فروشنده‌ای یافت نشد", textAlign: TextAlign.center),
-                ],
-              ),
-            );
-          }
-          return buildStepWrapper(
-            child: Column(
-              children: [
-                buildDropdown(
-                    label: "انتخاب فروشنده",
-                    data: data,
-                    value: sellerId,
-                    onChanged: (v) => setState(() => sellerId = v)),
-                const SizedBox(height: 20),
-                buildNextButton(() {
-                  if (sellerId == null || sellerId!.isEmpty) {
-                    Fluttertoast.showToast(msg: "لطفا یک فروشنده انتخاب کنید");
-                    return;
-                  }
-                  step.value++;
-                }),
-              ],
-            ),
-          );
-        }
+
+        final data = snapshot.data!;
         return buildStepWrapper(
-            child: const Center(child: Text("وضعیت نامعلوم")));
+          child: Column(
+            children: [
+              buildDropdown(
+                label: "انتخاب فروشنده",
+                data: data,
+                value: sellerId,
+                onChanged: (v) => setState(() => sellerId = v),
+              ),
+              const SizedBox(height: 20),
+              buildNextButton(() {
+                if (sellerId == null || sellerId!.isEmpty) {
+                  Fluttertoast.showToast(msg: "لطفا یک فروشنده انتخاب کنید");
+                  return;
+                }
+                step.value++;
+              }),
+            ],
+          ),
+        );
       },
     );
   }
@@ -615,53 +551,240 @@ class _NewFormState extends State<NewForm> {
   }
 
   Widget stepFinalSubmit() => buildStepWrapper(
-        child: buildNextButton(() async {
-          try {
-            final List<Map<String, dynamic>> invoiceItems = [];
-            for (final item in selectedItems) {
-              final String itemId = item['id'];
-              final String? purchaseDoc = selectedDocuments[itemId];
-              final String quantity = quantityControllers[itemId]?.text ?? '';
-              if (purchaseDoc == null || quantity.isEmpty) {
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Summary section
+            const Text(
+              "📋 خلاصه اطلاعات فاکتور",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+
+            // Buyer info card
+            buildStepWrapper(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("مشخصات خریدار",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildSummaryRow("کد ملی", buyerNationalId ?? "نامشخص"),
+                    _buildSummaryRow("نام", buyerInfo?["name"] ?? "نامشخص"),
+                    _buildSummaryRow(
+                        "استان", buyerInfo?["province"] ?? "نامشخص"),
+                    _buildSummaryRow("شهر", buyerInfo?["city"] ?? "نامشخص"),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Seller and warehouse info
+            buildStepWrapper(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("مشخصات فروش",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildSummaryRow("فروشنده", _getSellerName()),
+                    _buildSummaryRow("انبار", _getWarehouseName()),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Items summary
+            buildStepWrapper(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("کالاهای انتخابی",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    ..._buildItemsSummary(),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Description
+            if (description.isNotEmpty) ...[
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("توضیحات",
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text(description),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            const SizedBox(height: 2),
+
+            // Final submit button
+            buildNextButton(() async {
+              try {
+                // ساخت items با ساختار صحیح
+                final List<Map<String, dynamic>> invoiceItems = [];
+
+                for (final item in selectedItems) {
+                  final String itemId = item['id'];
+                  final String? purchaseDoc = selectedDocuments[itemId];
+                  final String quantity =
+                      quantityControllers[itemId]?.text ?? '';
+
+                  if (purchaseDoc == null || quantity.isEmpty) {
+                    Fluttertoast.showToast(
+                        msg: "لطفا برای همه کالاها سند و تعداد مشخص کنید");
+                    return;
+                  }
+
+                  final document = availableDocuments[itemId]!
+                      .firstWhere((doc) => doc['id'] == purchaseDoc);
+
+                  invoiceItems.add({
+                    "item_code": itemId,
+                    "quantity": int.tryParse(quantity) ?? 0,
+                    "saleprice": document['details']['saleprice'],
+                    "discount": 0,
+                    "purchase_doc": purchaseDoc,
+                    "item_id": document['details']['item_id']?.toString() ?? "",
+                  });
+                }
+
+                // ارسال درخواست
+                final result = await _salesFormService.finalSubmitInvoice(
+                  nationalId: buyerNationalId!,
+                  supplierId: sellerId!,
+                  warehouse: warehouseId!,
+                  description: description,
+                  items: invoiceItems,
+                );
+
+                if (result['code'] == '2000') {
+                  Fluttertoast.showToast(msg: result['message']);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => DesktopView()),
+                  );
+                  // step.value++;
+                } else {
+                  Fluttertoast.showToast(msg: result['message']);
+                }
+              } catch (e) {
                 Fluttertoast.showToast(
-                    msg: "لطفا برای همه کالاها سند و تعداد مشخص کنید");
-                return;
+                    msg: "خطا در ثبت نهایی: ${e.toString()}");
               }
-              final document = availableDocuments[itemId]!
-                  .firstWhere((doc) => doc['id'] == purchaseDoc);
-              invoiceItems.add({
-                "item_code": itemId,
-                "quantity": quantity,
-                "saleprice": document['details']['saleprice'],
-                "discount": 0,
-                "purchase_doc": purchaseDoc,
-                "item_id": document['details']['item_id'],
-              });
-            }
-            final result = await _salesFormService.finalSubmitInvoice(
-              nationalId: buyerNationalId!,
-              supplierId: sellerId!,
-              warehouse: warehouseId!,
-              description: description,
-              items: invoiceItems,
-            );
-            if (result['code'] == '2000') {
-              Fluttertoast.showToast(msg: result['message']);
-              step.value++;
-            } else {
-              Fluttertoast.showToast(msg: result['message']);
-            }
-          } catch (e) {
-            Fluttertoast.showToast(msg: "خطا در ثبت نهایی: ${e.toString()}");
-          }
-        }, "ثبت نهایی"),
+            }, "ثبت نهایی"),
+          ],
+        ),
       );
+
+// Helper method for summary rows
+  Widget _buildSummaryRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child:
+                Text("$label:", style: TextStyle(fontWeight: FontWeight.w500)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
+// Helper method to build items summary
+  List<Widget> _buildItemsSummary() {
+    if (selectedItems.isEmpty) {
+      return [const Text("هیچ کالایی انتخاب نشده")];
+    }
+
+    return selectedItems.map((item) {
+      final String itemId = item['id'];
+      final String? purchaseDoc = selectedDocuments[itemId];
+      final String quantity = quantityControllers[itemId]?.text ?? '0';
+      final String itemName = item['title'] ?? item['name'] ?? "کالا";
+
+      String docInfo = "سند نامشخص";
+      if (purchaseDoc != null && availableDocuments[itemId] != null) {
+        try {
+          final document = availableDocuments[itemId]!
+              .firstWhere((doc) => doc['id'] == purchaseDoc);
+          docInfo = "سند: ${document['name'] ?? purchaseDoc}";
+        } catch (e) {
+          docInfo = "سند: $purchaseDoc";
+        }
+      }
+
+      return Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(itemName, style: TextStyle(fontWeight: FontWeight.w500)),
+            const SizedBox(height: 4),
+            Text("تعداد: $quantity"),
+            Text(docInfo),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+// Helper methods to get seller and warehouse names
+  String _getSellerName() {
+    // You might need to cache the seller list or fetch the name
+    // For now, return the ID or implement proper caching
+    return sellerId ?? "نامشخص";
+  }
+
+  String _getWarehouseName() {
+    // You might need to cache the warehouse list or fetch the name
+    // For now, return the ID or implement proper caching
+    return warehouseId ?? "نامشخص";
+  }
 
   /// ------------------ Build ------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("فرآیند فروش")),
+      appBar: AppBar(
+          title: const Text(
+        "فرآیند فروش",
+        style: TextStyle(fontSize: 17),
+      )),
       body: Obx(() {
         switch (step.value) {
           case 0:

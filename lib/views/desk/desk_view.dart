@@ -15,6 +15,7 @@ import 'package:frappe_app/views/desk/shop/shop_info_page.dart';
 import 'package:frappe_app/views/desk/store_keeper_page.dart';
 import 'package:frappe_app/views/desk/supplier_info_page.dart';
 import 'package:frappe_app/views/login/login_page.dart';
+import 'package:frappe_app/views/visit/new_form.dart';
 import 'package:frappe_app/widgets/buttomSheetTempelate.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get_it/get_it.dart';
@@ -102,7 +103,7 @@ class _DesktopViewState extends State<DesktopView> {
           showSelectedLabels: true,
           type: BottomNavigationBarType.fixed,
           unselectedLabelStyle: TextStyle(fontSize: 12),
-          selectedLabelStyle: TextStyle(color: Colors.black,fontSize:12),
+          selectedLabelStyle: TextStyle(color: Colors.black, fontSize: 12),
           currentIndex: index.value,
           // selectedItemColor: const Color(0xff6200ee),
           unselectedItemColor: Colors.black,
@@ -161,7 +162,7 @@ class _DesktopViewState extends State<DesktopView> {
     } else if (i == 2) {
       if (_autService.isVisitingTeamOrIsRahbar()) {
         if (_autService.isSupplier()) {
-          return AllShopPage();
+          return NewForm();
         }
         return OrderPage();
       } else {

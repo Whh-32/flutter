@@ -24,7 +24,6 @@ import 'package:frappe_app/views/visit/product_visit.dart';
 import 'package:frappe_app/views/visit/vet_visit.dart';
 import 'package:frappe_app/widgets/new_from_widget.dart';
 import 'package:frappe_app/widgets/shop_cart_count.dart';
-import 'package:frappe_app/views/visit/new_form.dart';
 import 'package:get/get.dart';
 import 'package:get_it/get_it.dart';
 import 'package:lottie/lottie.dart';
@@ -82,8 +81,7 @@ class _HomeViewState extends State<HomeView> {
       MessagesView(),
       InitialVisit(),
       PeriodicVisits(),
-      VetVisit(),
-      NewForm()
+      VetVisit()
     ],
     'سر راهبر': [
       WeatherView(),
@@ -497,10 +495,6 @@ class _HomeViewState extends State<HomeView> {
     switch (pageName.runtimeType.toString()) {
       case "WeatherView":
         this.title = "آب و هوا";
-        this.path = 'assets/weather.json';
-        break;
-      case "NewForm":
-        this.title = "فرم ممد";
         this.path = 'assets/weather.json';
         break;
       case "PricesView":

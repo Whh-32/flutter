@@ -1,4 +1,6 @@
 // lib/services/sales_form_service.dart
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:frappe_app/services/http_service.dart';
 import 'package:get_it/get_it.dart';
@@ -224,56 +226,17 @@ class SalesFormService {
     }
   }
 
-  Future<Map<String, dynamic>> finalSubmitInvoice({
-    required String nationalId,
-    required String supplierId,
-    required String warehouse,
-    required String description,
-    required List<Map<String, dynamic>> items,
-  }) async {
+  Future<bool> sendSmsCode(String nationalId) async {
     try {
       final Map<String, dynamic> requestData = {
         "username": "chopoo",
         "password": "AqJ_Te",
         "national_id": nationalId,
-        "supplier_id": supplierId,
-        "warehouse": warehouse,
-        "description": description,
-        "items": items,
       };
-      _logger.i("Final submit request: $requestData");
 
       final response = await _httpService.post(
-          "/api/method/create_invoice?$credential",
+          "/api/method/send_verification_chopoo",
           FormData.fromMap(requestData));
-      final responseData = response?.data;
-      if (responseData == null) throw Exception("پاسخ سرور خالی است");
-
-      if (responseData.containsKey('errorcode')) {
-        final errorCode = responseData['errorcode'];
-        final errorMessage = responseData['message'] ?? "خطای ناشناخته";
-        throw Exception("$errorMessage (کد: $errorCode)");
-      }
-
-      if (responseData.containsKey('code') && responseData['code'] != '2000') {
-        throw Exception(responseData['message'] ?? "خطا در ایجاد فاکتور");
-      }
-
-      return {
-        "invoice_id": responseData['invoice_id'],
-        "message": responseData['message'] ?? "صورتحساب با موفقیت ایجاد شد",
-        "code": responseData['code'] ?? "2000",
-      };
-    } catch (e) {
-      _logger.e("Error in final submit: $e");
-      rethrow;
-    }
-  }
-
-  Future<bool> sendSmsCode(String nationalId) async {
-    try {
-      final response = await _httpService.get(
-          "/api/method/send_verification_chopoo?national_id=$nationalId&$credential");
 
       _logger.i("Send SMS response: $response");
       final responseData = response?.data;
@@ -296,38 +259,142 @@ class SalesFormService {
   }
 
   Future<bool> verifySmsCode(String code, String nationalId) async {
-    //for test
-    return true;
-    // try {
-    //   final response = await _httpService.get(
-    //       "/api/method/confirm_buyer_chopoo?verify_code=$code&national_id=$nationalId&$credential");
+    try {
+      final response = await _httpService.get(
+          "/api/method/confirm_buyer_chopoo?national_id=$nationalId&verify_code=$code&$credential");
 
-    //   _logger.i("Verify SMS response: $response");
+      _logger.i("Verify SMS response: $response");
 
-    //   final responseData = response?.data;
-    //   if (responseData == null) throw Exception("پاسخ سرور خالی است");
+      final responseData = response?.data;
+      if (responseData == null) throw Exception("پاسخ سرور خالی است");
 
-    //   final Map<String, dynamic> result = responseData;
+      final Map<String, dynamic> result = responseData;
 
-    //   if (result['code'] == 2000) {
-    //     // ✅ verification successful
-    //     final buyerData = result['data'];
-    //     _logger.i("Buyer confirmed: $buyerData");
-    //     return true;
-    //   } else if (result['code'] == 5000) {
-    //     throw Exception("کد اشتباه است. لطفا کد صحیح را وارد کنید");
-    //   } else if (result['code'] == 5300) {
-    //     throw Exception("شماره موبایل برای این خریدار یافت نشد");
-    //   } else if (result['code'] == 5100) {
-    //     throw Exception("برای کاربری با این شماره موبایل کدی ارسال نشده است");
-    //   } else if (result['errorcode'] == 4000) {
-    //     throw Exception("نام کاربری یا رمز عبور اشتباه است");
-    //   } else {
-    //     throw Exception("خطای ناشناخته: ${result['message']}");
-    //   }
-    // } catch (e) {
-    //   _logger.e("Error verifying SMS: $e");
-    //   rethrow;
-    // }
+      if (result['code'] == 2000) {
+        // ✅ verification successful
+        final buyerData = result['data'];
+        _logger.i("Buyer confirmed: $buyerData");
+        return true;
+      } else if (result['code'] == 5000) {
+        throw Exception("کد اشتباه است. لطفا کد صحیح را وارد کنید");
+      } else if (result['code'] == 5300) {
+        throw Exception("شماره موبایل برای این خریدار یافت نشد");
+      } else if (result['code'] == 5100) {
+        throw Exception("برای کاربری با این شماره موبایل کدی ارسال نشده است");
+      } else if (result['errorcode'] == 4000) {
+        throw Exception("نام کاربری یا رمز عبور اشتباه است");
+      } else {
+        throw Exception("خطای ناشناخته: ${result['message']}");
+      }
+    } catch (e) {
+      _logger.e("Error verifying SMS: $e");
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> finalSubmitInvoice({
+    required String nationalId,
+    required String supplierId,
+    required String warehouse,
+    required String description,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    try {
+      // ساختار داده‌های درخواست مطابق مستندات
+      final Map<String, dynamic> requestData = {
+        "username": "chopoo",
+        "password": "AqJ_Te",
+        "national_id": nationalId,
+        "supplier_id": supplierId,
+        "warehouse": warehouse,
+        "description": description,
+        "items": items,
+      };
+
+      _logger.i("Final submit request: $requestData");
+      _logger.i("Items count: ${items.length}");
+
+      // بررسی ساختار items قبل از ارسال
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        _logger.i("Item $i: $item");
+
+        // بررسی فیلدهای ضروری هر آیتم
+        if (item['item_code'] == null) {
+          throw Exception("فیلد item_code برای آیتم ${i + 1} وجود ندارد");
+        }
+        if (item['quantity'] == null) {
+          throw Exception("فیلد quantity برای آیتم ${i + 1} وجود ندارد");
+        }
+        if (item['saleprice'] == null) {
+          throw Exception("فیلد saleprice برای آیتم ${i + 1} وجود ندارد");
+        }
+        if (item['purchase_doc'] == null) {
+          throw Exception("فیلد purchase_doc برای آیتم ${i + 1} وجود ندارد");
+        }
+        if (item['item_id'] == null) {
+          throw Exception("فیلد item_id برای آیتم ${i + 1} وجود ندارد");
+        }
+      }
+
+      final response = await _httpService.postFormData(
+          "/api/method/create_invoice_chopoo", requestData);
+
+      final responseData = response?.data;
+      if (responseData == null) {
+        throw Exception("پاسخ سرور خالی است");
+      }
+
+      _logger.i("Final submit response: $responseData");
+
+      // بررسی انواع خطاها بر اساس مستندات
+      if (responseData.containsKey('errorcode')) {
+        final dynamic errorCode = responseData['errorcode'];
+        final String errorMessage =
+            responseData['message']?.toString() ?? "خطای ناشناخته";
+
+        // مدیریت خطاهای خاص بر اساس کد
+        switch (errorCode.toString()) {
+          case '4000':
+            throw Exception("نام کاربری یا رمز عبور اشتباه است");
+          case '5000':
+            throw Exception("متقاضی مورد نظر یافت نشد");
+          case '5001':
+            throw Exception("تأمین‌کننده یافت نشد");
+          default:
+            throw Exception("$errorMessage (کد خطا: $errorCode)");
+        }
+      }
+
+      // بررسی کد پاسخ برای موفقیت آمیز بودن
+      if (responseData.containsKey('code')) {
+        final dynamic responseCode = responseData['code'];
+
+        switch (responseCode.toString()) {
+          case '2000':
+            // موفقیت آمیز
+            return {
+              "invoice_id": responseData['invoice_id']?.toString() ?? "نامشخص",
+              "message": responseData['message']?.toString() ??
+                  "صورتحساب با موفقیت ایجاد شد",
+              "code": responseCode.toString(),
+            };
+
+          case '6001':
+            throw Exception("خطا: گروه کالا معتبر نیست");
+
+          default:
+            final String errorMessage = responseData['message']?.toString() ??
+                "خطای ناشناخته (کد: $responseCode)";
+            throw Exception(errorMessage);
+        }
+      }
+
+      // اگر ساختار پاسخ نامعتبر باشد
+      throw Exception("ساختار پاسخ سرور نامعتبر است");
+    } catch (e) {
+      _logger.e("Error in final submit: $e");
+      rethrow;
+    }
   }
 }
