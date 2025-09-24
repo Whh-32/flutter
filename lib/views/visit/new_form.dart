@@ -1,4 +1,5 @@
 // lib/screens/new_form.dart
+import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -37,6 +38,10 @@ class _NewFormState extends State<NewForm> {
   Map<String, String?> selectedDocuments = {};
   Map<String, List<Map<String, dynamic>>> availableDocuments = {};
   Map<String, bool> loadingDocuments = {};
+
+  // Cache for seller and warehouse data
+  List<Map<String, dynamic>> _sellersCache = [];
+  List<Map<String, dynamic>> _warehousesCache = [];
 
   /// ------------------ Reusable Widgets ------------------
   Widget buildDropdown({
@@ -199,6 +204,9 @@ class _NewFormState extends State<NewForm> {
         }
 
         final data = snapshot.data!;
+        // Cache the sellers data
+        _sellersCache = data;
+
         return buildStepWrapper(
           child: Column(
             children: [
@@ -231,6 +239,9 @@ class _NewFormState extends State<NewForm> {
           return buildStepWrapper(
               child: const Center(child: CircularProgressIndicator()));
         final data = snapshot.data!;
+        // Cache the warehouses data
+        _warehousesCache = data;
+
         return buildStepWrapper(
           child: Column(
             children: [
@@ -285,7 +296,7 @@ class _NewFormState extends State<NewForm> {
                         tempItemId = v;
                         selectedDocForTemp = null;
                         tempQuantity = null;
-                        tempQuantityController.clear(); // ✅ ریست کردن ورودی
+                        tempQuantityController.clear();
                         docsForTemp = [];
                         isLoadingDocs = true;
                       });
@@ -335,9 +346,11 @@ class _NewFormState extends State<NewForm> {
 
                   // تعداد
                   TextField(
-                    controller: tempQuantityController, // ✅ کنترلر اضافه شد
-                    decoration: const InputDecoration(
-                        labelText: "مقدار", border: OutlineInputBorder()),
+                    controller: tempQuantityController,
+                    decoration: InputDecoration(
+                        labelText: "مقدار",
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12))),
                     keyboardType: TextInputType.number,
                     onChanged: (value) => setState(() => tempQuantity = value),
                   ),
@@ -375,7 +388,6 @@ class _NewFormState extends State<NewForm> {
                               selectedDocForTemp!,
                             );
 
-                            /// ✅ بعد از اضافه کردن، ورودی ریست بشه
                             tempQuantityController.clear();
                             tempQuantity = null;
                           },
@@ -392,16 +404,20 @@ class _NewFormState extends State<NewForm> {
             const Text("کالاهای انتخاب شده:",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            ...selectedItems
-                .map((item) => _buildSelectedItemCard(item))
-                .toList(),
+            ...selectedItems.asMap().entries.map((entry) {
+              final index = entry.key;
+              final item = entry.value;
+              return _buildSelectedItemCard(item, index);
+            }).toList(),
+            const SizedBox(height: 30),
+            const Divider(),
           ],
-          const SizedBox(height: 30),
-          const Divider(),
           const SizedBox(height: 20),
           TextField(
-            decoration: const InputDecoration(
-                labelText: "توضیحات (اختیاری)", border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: "توضیحات (اختیاری)",
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12))),
             maxLines: 3,
             onChanged: (value) => setState(() => description = value),
           ),
@@ -424,18 +440,20 @@ class _NewFormState extends State<NewForm> {
   bool isLoadingDocs = false;
 
   /// کارت نمایش کالای انتخاب‌شده
-  Widget _buildSelectedItemCard(Map<String, dynamic> item) {
-    final String itemId = item['id'];
-    final String? selectedDoc = selectedDocuments[itemId];
-    final controller = quantityControllers[itemId];
-    return Card(
+  Widget _buildSelectedItemCard(Map<String, dynamic> item, int index) {
+    // Use a unique key for each item to prevent issues
+    final String uniqueKey = '${item['id']}_$index';
+    final String? selectedDoc = selectedDocuments[uniqueKey];
+    final controller = quantityControllers[uniqueKey];
+
+    return buildStepWrapper(
       child: ListTile(
-        title: Text(item['title'] ?? "کالا"),
+        title: Text(item['title'] ?? item['name'] ?? "کالا"),
         subtitle: Text(
             "تعداد: ${controller?.text ?? '-'}\nسند: ${selectedDoc ?? 'انتخاب نشده'}"),
         trailing: IconButton(
           icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: () => _removeItem(itemId),
+          onPressed: () => _removeItem(uniqueKey, index),
         ),
       ),
     );
@@ -449,12 +467,22 @@ class _NewFormState extends State<NewForm> {
       List<Map<String, dynamic>> docs,
       String selectedDoc) {
     final item = items.firstWhere((element) => element['id'] == itemId);
+
+    // Create a new map to avoid reference issues
+    final newItem = Map<String, dynamic>.from(item);
+
     final controller = TextEditingController(text: quantity);
+
+    // Use a unique key for each item (itemId + index)
+    final uniqueKey = '${itemId}_${selectedItems.length}';
+
     setState(() {
-      selectedItems.add(item);
-      quantityControllers[itemId] = controller;
-      availableDocuments[itemId] = docs;
-      selectedDocuments[itemId] = selectedDoc;
+      selectedItems.add(newItem);
+      quantityControllers[uniqueKey] = controller;
+      availableDocuments[uniqueKey] = List<Map<String, dynamic>>.from(docs);
+      selectedDocuments[uniqueKey] = selectedDoc;
+
+      // Reset temporary variables
       tempItemId = null;
       tempQuantity = null;
       selectedDocForTemp = null;
@@ -462,12 +490,53 @@ class _NewFormState extends State<NewForm> {
     });
   }
 
-  void _removeItem(String itemId) {
+  void _removeItem(String uniqueKey, int index) {
     setState(() {
-      selectedItems.removeWhere((e) => e['id'] == itemId);
-      quantityControllers.remove(itemId);
-      selectedDocuments.remove(itemId);
-      availableDocuments.remove(itemId);
+      // Remove the item at the specific index
+      if (index >= 0 && index < selectedItems.length) {
+        selectedItems.removeAt(index);
+      }
+
+      // Remove associated data using the unique key
+      quantityControllers.remove(uniqueKey);
+      selectedDocuments.remove(uniqueKey);
+      availableDocuments.remove(uniqueKey);
+
+      // Rebuild the keys for remaining items to maintain consistency
+      _rebuildItemKeys();
+    });
+  }
+
+  void _rebuildItemKeys() {
+    // Create new maps for the remaining items
+    final newQuantityControllers = <String, TextEditingController>{};
+    final newSelectedDocuments = <String, String?>{};
+    final newAvailableDocuments = <String, List<Map<String, dynamic>>>{};
+
+    for (int i = 0; i < selectedItems.length; i++) {
+      final item = selectedItems[i];
+      final oldKey = '${item['id']}_$i'; // Try to reconstruct the old key
+      final newKey = '${item['id']}_$i'; // New key with updated index
+
+      // Transfer data to new maps with new keys
+      if (quantityControllers.containsKey(oldKey)) {
+        newQuantityControllers[newKey] = quantityControllers[oldKey]!;
+      }
+
+      if (selectedDocuments.containsKey(oldKey)) {
+        newSelectedDocuments[newKey] = selectedDocuments[oldKey];
+      }
+
+      if (availableDocuments.containsKey(oldKey)) {
+        newAvailableDocuments[newKey] = availableDocuments[oldKey]!;
+      }
+    }
+
+    // Replace the old maps with new ones
+    setState(() {
+      quantityControllers = newQuantityControllers;
+      selectedDocuments = newSelectedDocuments;
+      availableDocuments = newAvailableDocuments;
     });
   }
 
@@ -629,7 +698,9 @@ class _NewFormState extends State<NewForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text("توضیحات",
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          )),
                       const SizedBox(height: 8),
                       Text(description),
                     ],
@@ -647,11 +718,14 @@ class _NewFormState extends State<NewForm> {
                 // ساخت items با ساختار صحیح
                 final List<Map<String, dynamic>> invoiceItems = [];
 
-                for (final item in selectedItems) {
+                for (int i = 0; i < selectedItems.length; i++) {
+                  final item = selectedItems[i];
                   final String itemId = item['id'];
-                  final String? purchaseDoc = selectedDocuments[itemId];
+                  final String uniqueKey = '${itemId}_$i';
+
+                  final String? purchaseDoc = selectedDocuments[uniqueKey];
                   final String quantity =
-                      quantityControllers[itemId]?.text ?? '';
+                      quantityControllers[uniqueKey]?.text ?? '';
 
                   if (purchaseDoc == null || quantity.isEmpty) {
                     Fluttertoast.showToast(
@@ -659,7 +733,7 @@ class _NewFormState extends State<NewForm> {
                     return;
                   }
 
-                  final document = availableDocuments[itemId]!
+                  final document = availableDocuments[uniqueKey]!
                       .firstWhere((doc) => doc['id'] == purchaseDoc);
 
                   invoiceItems.add({
@@ -687,7 +761,6 @@ class _NewFormState extends State<NewForm> {
                     context,
                     MaterialPageRoute(builder: (context) => DesktopView()),
                   );
-                  // step.value++;
                 } else {
                   Fluttertoast.showToast(msg: result['message']);
                 }
@@ -726,16 +799,20 @@ class _NewFormState extends State<NewForm> {
       return [const Text("هیچ کالایی انتخاب نشده")];
     }
 
-    return selectedItems.map((item) {
+    return selectedItems.asMap().entries.map((entry) {
+      final index = entry.key;
+      final item = entry.value;
       final String itemId = item['id'];
-      final String? purchaseDoc = selectedDocuments[itemId];
-      final String quantity = quantityControllers[itemId]?.text ?? '0';
+      final String uniqueKey = '${itemId}_$index';
+
+      final String? purchaseDoc = selectedDocuments[uniqueKey];
+      final String quantity = quantityControllers[uniqueKey]?.text ?? '0';
       final String itemName = item['title'] ?? item['name'] ?? "کالا";
 
       String docInfo = "سند نامشخص";
-      if (purchaseDoc != null && availableDocuments[itemId] != null) {
+      if (purchaseDoc != null && availableDocuments[uniqueKey] != null) {
         try {
-          final document = availableDocuments[itemId]!
+          final document = availableDocuments[uniqueKey]!
               .firstWhere((doc) => doc['id'] == purchaseDoc);
           docInfo = "سند: ${document['name'] ?? purchaseDoc}";
         } catch (e) {
@@ -764,14 +841,46 @@ class _NewFormState extends State<NewForm> {
 
 // Helper methods to get seller and warehouse names
   String _getSellerName() {
-    // You might need to cache the seller list or fetch the name
-    // For now, return the ID or implement proper caching
+    if (sellerId == null) return "نامشخص";
+
+    // Search in cached sellers data
+    try {
+      final seller = _sellersCache.firstWhere(
+        (seller) => seller['id'].toString() == sellerId,
+        orElse: () => {},
+      );
+
+      if (seller.isNotEmpty) {
+        return seller['name']?.toString() ??
+            seller['store_name']?.toString() ??
+            "نامشخص";
+      }
+    } catch (e) {
+      // If there's an error, fall back to ID
+    }
+
     return sellerId ?? "نامشخص";
   }
 
   String _getWarehouseName() {
-    // You might need to cache the warehouse list or fetch the name
-    // For now, return the ID or implement proper caching
+    if (warehouseId == null) return "نامشخص";
+
+    // Search in cached warehouses data
+    try {
+      final warehouse = _warehousesCache.firstWhere(
+        (warehouse) => warehouse['id'].toString() == warehouseId,
+        orElse: () => {},
+      );
+
+      if (warehouse.isNotEmpty) {
+        return warehouse['name']?.toString() ??
+            warehouse['title']?.toString() ??
+            "نامشخص";
+      }
+    } catch (e) {
+      // If there's an error, fall back to ID
+    }
+
     return warehouseId ?? "نامشخص";
   }
 
@@ -780,10 +889,34 @@ class _NewFormState extends State<NewForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-          title: const Text(
-        "فرآیند فروش",
-        style: TextStyle(fontSize: 17),
-      )),
+        automaticallyImplyLeading: false, // غیرفعال کردن دکمه پیشفرض بک
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "فرآیند فروش",
+              style: TextStyle(fontSize: 17),
+            ),
+            Obx(() {
+              if (step.value > 0) {
+                return TextButton(
+                  onPressed: () {
+                    if (step.value > 0) step.value--;
+                  },
+                  child: const Text(
+                    "مرحله قبل",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                    ),
+                  ),
+                );
+              }
+              return const SizedBox();
+            }),
+          ],
+        ),
+      ),
       body: Obx(() {
         switch (step.value) {
           case 0:
