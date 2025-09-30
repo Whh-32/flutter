@@ -49,24 +49,137 @@ class _NewFormState extends State<NewForm> {
     required List<Map<String, dynamic>> data,
     required String? value,
     required Function(String?) onChanged,
+    bool isSearchable = false,
   }) {
     final uniqueData = {for (var e in data) e["id"]: e}.values.toList();
-    return DropdownButtonFormField<String>(
-      value: uniqueData.any((e) => e["id"].toString() == value) ? value : null,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      items: uniqueData
-          .map((e) => DropdownMenuItem<String>(
-                value: e["id"].toString(),
-                child:
-                    Text(e["name"]?.toString() ?? e["title"]?.toString() ?? ""),
-              ))
-          .toList(),
-      onChanged: onChanged,
-    );
+
+    String getDisplayText(Map<String, dynamic> item) {
+      return item["name"]?.toString() ?? item["title"]?.toString() ?? "";
+    }
+
+    // Regular dropdown (original)
+    Widget buildRegularDropdown() {
+      return DropdownButtonFormField<String>(
+        value:
+            uniqueData.any((e) => e["id"].toString() == value) ? value : null,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        items: uniqueData
+            .map((e) => DropdownMenuItem<String>(
+                  value: e["id"].toString(),
+                  child: Text(getDisplayText(e)),
+                ))
+            .toList(),
+        onChanged: onChanged,
+      );
+    }
+
+    // Searchable dropdown using built-in widgets with dynamic height
+    Widget buildSearchableDropdown() {
+      return Autocomplete<String>(
+        displayStringForOption: (option) {
+          final item = uniqueData.firstWhere(
+            (e) => e["id"].toString() == option,
+            orElse: () => {},
+          );
+          return getDisplayText(item);
+        },
+        optionsBuilder: (TextEditingValue textEditingValue) {
+          if (textEditingValue.text.isEmpty) {
+            return uniqueData.map((e) => e["id"].toString());
+          }
+          return uniqueData
+              .where((e) => getDisplayText(e)
+                  .toLowerCase()
+                  .contains(textEditingValue.text.toLowerCase()))
+              .map((e) => e["id"].toString());
+        },
+        onSelected: onChanged,
+        fieldViewBuilder:
+            (context, textEditingController, focusNode, onFieldSubmitted) {
+          // Set initial value text
+          if (value != null) {
+            final selectedItem = uniqueData.firstWhere(
+              (e) => e["id"].toString() == value,
+              orElse: () => {},
+            );
+            if (selectedItem.isNotEmpty) {
+              textEditingController.text = getDisplayText(selectedItem);
+            }
+          }
+
+          return TextFormField(
+            controller: textEditingController,
+            focusNode: focusNode,
+            onFieldSubmitted: (value) => onFieldSubmitted(),
+            decoration: InputDecoration(
+              labelText: label,
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              suffixIcon: const Icon(Icons.arrow_drop_down),
+            ),
+          );
+        },
+        optionsViewBuilder: (context, onSelected, options) {
+          final itemCount = options.length;
+
+          // Dynamic height calculation
+          double getContainerHeight() {
+            if (itemCount == 0) {
+              return 80.0; // Height for "no results" message
+            } else if (itemCount == 1) {
+              return 60.0; // Smaller height for single item
+            } else if (itemCount <= 3) {
+              return itemCount * 56.0; // Compact height for few items
+            } else {
+              return 200.0; // Maximum height for many items
+            }
+          }
+
+          return Align(
+            alignment: Alignment.topRight,
+            child: Material(
+              elevation: 4,
+              child: Container(
+                height: getContainerHeight(), // Dynamic height applied here
+                child: itemCount == 0
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            'موردی یافت نشد',
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.zero,
+                        itemCount: itemCount,
+                        itemBuilder: (context, index) {
+                          final option = options.elementAt(index);
+                          final item = uniqueData.firstWhere(
+                            (e) => e["id"].toString() == option,
+                          );
+                          return ListTile(
+                            title: Text(getDisplayText(item)),
+                            onTap: () => onSelected(option),
+                          );
+                        },
+                      ),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return isSearchable ? buildSearchableDropdown() : buildRegularDropdown();
   }
 
   Widget buildStepWrapper({required Widget child}) {
@@ -290,6 +403,7 @@ class _NewFormState extends State<NewForm> {
                     label: "انتخاب کالا",
                     data: items,
                     value: tempItemId,
+                    isSearchable: true,
                     onChanged: (v) async {
                       setState(() {
                         tempItemId = v;
