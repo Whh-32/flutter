@@ -264,7 +264,7 @@ class _NewFormState extends State<NewForm> {
   Widget stepBuyerInfo() => buildStepWrapper(
         child: Column(
           children: [
-            const Text("📋 اطلاعات خریدار",
+            const Text("اطلاعات خریدار",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             buildStepWrapper(
@@ -673,7 +673,7 @@ class _NewFormState extends State<NewForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            "📲 تایید شماره موبایل",
+            "تایید شماره موبایل",
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
@@ -738,7 +738,7 @@ class _NewFormState extends State<NewForm> {
           children: [
             // 📋 خلاصه اطلاعات
             const Text(
-              "📋 خلاصه اطلاعات فاکتور",
+              "خلاصه اطلاعات فاکتور",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
