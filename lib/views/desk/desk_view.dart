@@ -150,7 +150,7 @@ class _DesktopViewState extends State<DesktopView> {
       if (_autService.isVisitingTeamOrIsRahbar()) {
         return RequestPage();
       } else if (_autService.isSupplier()) {
-        return AllShopPage();
+        return NewForm();
       }
       return OrderPage();
     } else if (i == 2) {
