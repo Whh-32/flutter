@@ -154,10 +154,7 @@ class _NewFormState extends State<NewForm> {
             const Text("📋 اطلاعات خریدار",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+            buildStepWrapper(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -169,6 +166,8 @@ class _NewFormState extends State<NewForm> {
                     _buildInfoRow("شهر", buyerInfo?["city"]),
                     const Divider(),
                     _buildInfoRow("کد ملی", buyerInfo?["national_id"]),
+                    const Divider(),
+                    _buildInfoRow("شماره مبایل", buyerInfo?["mobile"]),
                   ],
                 ),
               ),
@@ -623,7 +622,7 @@ class _NewFormState extends State<NewForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Summary section
+            // 📋 خلاصه اطلاعات
             const Text(
               "📋 خلاصه اطلاعات فاکتور",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -631,7 +630,7 @@ class _NewFormState extends State<NewForm> {
             ),
             const SizedBox(height: 16),
 
-            // Buyer info card
+            // Buyer info
             buildStepWrapper(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -653,7 +652,7 @@ class _NewFormState extends State<NewForm> {
 
             const SizedBox(height: 12),
 
-            // Seller and warehouse info
+            // Seller + warehouse
             buildStepWrapper(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -672,7 +671,7 @@ class _NewFormState extends State<NewForm> {
 
             const SizedBox(height: 12),
 
-            // Items summary
+            // Items
             buildStepWrapper(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -712,63 +711,85 @@ class _NewFormState extends State<NewForm> {
 
             const SizedBox(height: 2),
 
-            // Final submit button
-            buildNextButton(() async {
-              try {
-                // ساخت items با ساختار صحیح
-                final List<Map<String, dynamic>> invoiceItems = [];
+            // ✅ Final submit button OR loading
+            isLoading
+                ? const Padding(
+                    padding: EdgeInsets.only(bottom: 16), // فاصله از پایین
+                    child: Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : buildNextButton(() async {
+                    setState(() {
+                      isLoading = true;
+                    });
 
-                for (int i = 0; i < selectedItems.length; i++) {
-                  final item = selectedItems[i];
-                  final String itemId = item['id'];
-                  final String uniqueKey = '${itemId}_$i';
+                    try {
+                      // ساخت items
+                      final List<Map<String, dynamic>> invoiceItems = [];
 
-                  final String? purchaseDoc = selectedDocuments[uniqueKey];
-                  final String quantity =
-                      quantityControllers[uniqueKey]?.text ?? '';
+                      for (int i = 0; i < selectedItems.length; i++) {
+                        final item = selectedItems[i];
+                        final String itemId = item['id'];
+                        final String uniqueKey = '${itemId}_$i';
 
-                  if (purchaseDoc == null || quantity.isEmpty) {
-                    Fluttertoast.showToast(
-                        msg: "لطفا برای همه کالاها سند و تعداد مشخص کنید");
-                    return;
-                  }
+                        final String? purchaseDoc =
+                            selectedDocuments[uniqueKey];
+                        final String quantity =
+                            quantityControllers[uniqueKey]?.text ?? '';
 
-                  final document = availableDocuments[uniqueKey]!
-                      .firstWhere((doc) => doc['id'] == purchaseDoc);
+                        if (purchaseDoc == null || quantity.isEmpty) {
+                          Fluttertoast.showToast(
+                              msg:
+                                  "لطفا برای همه کالاها سند و تعداد مشخص کنید");
+                          setState(() {
+                            isLoading = false;
+                          });
+                          return;
+                        }
 
-                  invoiceItems.add({
-                    "item_code": itemId,
-                    "quantity": int.tryParse(quantity) ?? 0,
-                    "saleprice": document['details']['saleprice'],
-                    "discount": 0,
-                    "purchase_doc": purchaseDoc,
-                    "item_id": document['details']['item_id']?.toString() ?? "",
-                  });
-                }
+                        final document = availableDocuments[uniqueKey]!
+                            .firstWhere((doc) => doc['id'] == purchaseDoc);
 
-                // ارسال درخواست
-                final result = await _salesFormService.finalSubmitInvoice(
-                  nationalId: buyerNationalId!,
-                  supplierId: sellerId!,
-                  warehouse: warehouseId!,
-                  description: description,
-                  items: invoiceItems,
-                );
+                        invoiceItems.add({
+                          "item_code": itemId,
+                          "quantity": int.tryParse(quantity) ?? 0,
+                          "saleprice": document['details']['saleprice'],
+                          "discount": 0,
+                          "purchase_doc": purchaseDoc,
+                          "item_id":
+                              document['details']['item_id']?.toString() ?? "",
+                        });
+                      }
 
-                if (result['code'] == '2000') {
-                  Fluttertoast.showToast(msg: result['message']);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => DesktopView()),
-                  );
-                } else {
-                  Fluttertoast.showToast(msg: result['message']);
-                }
-              } catch (e) {
-                Fluttertoast.showToast(
-                    msg: "خطا در ثبت نهایی: ${e.toString()}");
-              }
-            }, "ثبت نهایی"),
+                      // ارسال درخواست
+                      final result = await _salesFormService.finalSubmitInvoice(
+                        nationalId: buyerNationalId!,
+                        supplierId: sellerId!,
+                        warehouse: warehouseId!,
+                        description: description,
+                        items: invoiceItems,
+                      );
+
+                      if (result['code'] == '2000') {
+                        Fluttertoast.showToast(msg: result['message']);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => DesktopView()),
+                        );
+                      } else {
+                        Fluttertoast.showToast(msg: result['message']);
+                      }
+                    } catch (e) {
+                      Fluttertoast.showToast(
+                          msg: "خطا در ثبت نهایی: ${e.toString()}");
+                    } finally {
+                      setState(() {
+                        isLoading = false;
+                      });
+                    }
+                  }, "ثبت نهایی"),
           ],
         ),
       );

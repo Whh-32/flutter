@@ -131,12 +131,6 @@ class _DesktopViewState extends State<DesktopView> {
               activeIcon: _selectedIcon(Icons.list_alt_outlined),
               label: 'سفارشات',
             ),
-            if (_autService.isStorekeeper())
-              BottomNavigationBarItem(
-                icon: _unSelectedIcon(Icons.table_chart_sharp),
-                activeIcon: _selectedIcon(Icons.table_chart_sharp),
-                label: 'انبار من',
-              ),
           ],
           onTap: (_) {
             index.value = _;

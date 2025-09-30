@@ -37,7 +37,8 @@ class SalesFormService {
           "province": buyerData['province'],
           "city": buyerData['city'],
           "national_id": buyerData['national_id'],
-          "credit": buyerData['custom_remain_loan']
+          "credit": buyerData['custom_remain_loan'],
+          "mobile": buyerData['mobile']
         };
       } else if (message['code'] == 5000) {
         throw Exception("اطلاعاتی برای این کد ملی یافت نشد");
