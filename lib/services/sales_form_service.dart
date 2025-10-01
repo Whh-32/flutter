@@ -206,7 +206,7 @@ class SalesFormService {
           return {
             "id": doc['purchase_doc'].toString(),
             "title":
-                "سند: ${doc['purchase_doc']} - موجودی: ${doc['remain_quantity']}",
+                "قیمت فروش: ${doc['saleprice']} / موجودی: ${doc['remain_quantity']}",
             "details": {
               "purchase_doc": doc['purchase_doc'],
               "saleprice": doc['saleprice'],

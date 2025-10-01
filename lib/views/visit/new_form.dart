@@ -79,7 +79,10 @@ class _NewFormState extends State<NewForm> {
 
     // Searchable dropdown using built-in widgets with dynamic height
     Widget buildSearchableDropdown() {
+      // Use a local key that gets reset when value is null
       return Autocomplete<String>(
+        key: ValueKey(value ??
+            'empty'), // This will force rebuild when value changes to null
         displayStringForOption: (option) {
           final item = uniqueData.firstWhere(
             (e) => e["id"].toString() == option,
@@ -100,8 +103,13 @@ class _NewFormState extends State<NewForm> {
         onSelected: onChanged,
         fieldViewBuilder:
             (context, textEditingController, focusNode, onFieldSubmitted) {
-          // Set initial value text
-          if (value != null) {
+          // Clear the controller when value is null (when resetting)
+          if (value == null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              textEditingController.clear();
+            });
+          } else {
+            // Set initial value text
             final selectedItem = uniqueData.firstWhere(
               (e) => e["id"].toString() == value,
               orElse: () => {},
@@ -398,7 +406,7 @@ class _NewFormState extends State<NewForm> {
               final items = snapshot.data!;
               return Column(
                 children: [
-                  // انتخاب کالا
+                  // انتخاب کالا - UPDATED
                   buildDropdown(
                     label: "انتخاب کالا",
                     data: items,
@@ -447,14 +455,6 @@ class _NewFormState extends State<NewForm> {
                       onChanged: (v) => setState(() => selectedDocForTemp = v),
                     ),
 
-                  if (selectedDocForTemp != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      "موجودی: ${docsForTemp.firstWhere((d) => d['id'] == selectedDocForTemp)['details']['remain_quantity']}",
-                      style: const TextStyle(color: Colors.green),
-                    ),
-                  ],
-
                   const SizedBox(height: 16),
 
                   // تعداد
@@ -501,8 +501,8 @@ class _NewFormState extends State<NewForm> {
                               selectedDocForTemp!,
                             );
 
-                            tempQuantityController.clear();
-                            tempQuantity = null;
+                            // Reset the dropdown - ADD THIS LINE
+                            _resetItemSelection();
                           },
                     child: const Text("افزودن کالا"),
                   ),
@@ -547,10 +547,57 @@ class _NewFormState extends State<NewForm> {
     );
   }
 
+  /// Add this method to reset the dropdown
+  void _resetItemSelection() {
+    // Reset all temporary variables
+    setState(() {
+      tempItemId = null;
+      tempQuantity = null;
+      tempQuantityController.clear();
+      selectedDocForTemp = null;
+      docsForTemp = [];
+      isLoadingDocs = false;
+    });
+  }
+
   /// متغیرهای کمکی جدید
   List<Map<String, dynamic>> docsForTemp = [];
   String? selectedDocForTemp;
   bool isLoadingDocs = false;
+  String? _getSalePrice(String uniqueKey, String? selectedDoc) {
+    if (selectedDoc == null) return null;
+
+    try {
+      final documents = availableDocuments[uniqueKey];
+      if (documents != null) {
+        final document = documents.firstWhere(
+          (doc) => doc['id'] == selectedDoc,
+          orElse: () => {},
+        );
+
+        if (document.isNotEmpty) {
+          final salePrice = document['details']?['saleprice']?.toString();
+          return salePrice != null ? _formatPrice(salePrice) : null;
+        }
+      }
+    } catch (e) {
+      print('Error getting sale price: $e');
+    }
+
+    return null;
+  }
+
+  String _formatPrice(String price) {
+    // Format price with commas for thousands
+    final number = int.tryParse(price);
+    if (number != null) {
+      return number.toString().replaceAllMapped(
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]},',
+          );
+    }
+    return price;
+  }
 
   /// کارت نمایش کالای انتخاب‌شده
   Widget _buildSelectedItemCard(Map<String, dynamic> item, int index) {
@@ -563,7 +610,7 @@ class _NewFormState extends State<NewForm> {
       child: ListTile(
         title: Text(item['title'] ?? item['name'] ?? "کالا"),
         subtitle: Text(
-            "تعداد: ${controller?.text ?? '-'}\nسند: ${selectedDoc ?? 'انتخاب نشده'}"),
+            "تعداد: ${controller?.text ?? '-'}\nسند: ${selectedDoc ?? 'انتخاب نشده'} \nقیمت فروش: ${_getSalePrice(uniqueKey, selectedDoc) ?? 'نامشخص'}"),
         trailing: IconButton(
           icon: const Icon(Icons.delete, color: Colors.red),
           onPressed: () => _removeItem(uniqueKey, index),
@@ -594,12 +641,6 @@ class _NewFormState extends State<NewForm> {
       quantityControllers[uniqueKey] = controller;
       availableDocuments[uniqueKey] = List<Map<String, dynamic>>.from(docs);
       selectedDocuments[uniqueKey] = selectedDoc;
-
-      // Reset temporary variables
-      tempItemId = null;
-      tempQuantity = null;
-      selectedDocForTemp = null;
-      docsForTemp = [];
     });
   }
 
