@@ -370,10 +370,11 @@ class _NewFormState extends State<NewForm> {
           );
         }
 
-        // Show error state
+        // Show error state with back button
         if (snapshot.hasError) {
           return buildStepWrapper(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.error_outline,
@@ -389,46 +390,20 @@ class _NewFormState extends State<NewForm> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  snapshot.error.toString(),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                  maxLines: 3,
-                ),
                 const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: buildBackButton(() {
-                        // Handle back navigation - you might want to go to previous step
-                        // or reset the flow based on your app logic
-                        step.value--;
-                      }),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.refresh),
-                        label: const Text("تلاش مجدد"),
-                        onPressed: () {
-                          setState(() {
-                            // This will trigger the FutureBuilder to rebuild
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                buildBackButton(() {
+                  step.value--;
+                }),
               ],
             ),
           );
         }
 
-        // Show empty state
+        // Show empty state with back button
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return buildStepWrapper(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
                   Icons.inventory_2_outlined,
@@ -449,7 +424,7 @@ class _NewFormState extends State<NewForm> {
           );
         }
 
-        // Data loaded successfully
+        // Data loaded successfully - NO back button
         final data = snapshot.data!;
         _warehousesCache = data;
 
@@ -463,26 +438,14 @@ class _NewFormState extends State<NewForm> {
                 onChanged: (v) => setState(() => warehouseId = v),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: buildBackButton(() {
-                      step.value--;
-                    }),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: buildNextButton(() {
-                      if (warehouseId == null || warehouseId!.isEmpty) {
-                        Fluttertoast.showToast(
-                            msg: "لطفا یک انبار انتخاب کنید");
-                        return;
-                      }
-                      step.value++;
-                    }),
-                  ),
-                ],
-              ),
+              // Only next button when we have data
+              buildNextButton(() {
+                if (warehouseId == null || warehouseId!.isEmpty) {
+                  Fluttertoast.showToast(msg: "لطفا یک انبار انتخاب کنید");
+                  return;
+                }
+                step.value++;
+              }),
             ],
           ),
         );
@@ -490,7 +453,6 @@ class _NewFormState extends State<NewForm> {
     );
   }
 
-// Add this method if you don't have it already
   Widget buildBackButton(VoidCallback onPressed) {
     return OutlinedButton(
       onPressed: onPressed,
