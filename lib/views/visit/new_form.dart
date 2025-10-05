@@ -1,10 +1,13 @@
 // lib/screens/new_form.dart
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
+import 'package:frappe_app/utils/constants.dart';
 import 'package:get/get.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:frappe_app/services/sales_form_service.dart';
 import 'package:frappe_app/views/desk/desk_view.dart';
+import 'package:frappe_app/utils/SharedPreferenceHelper.dart';
+import 'package:get_it/get_it.dart';
 import 'dart:async';
 
 class NewForm extends StatefulWidget {
@@ -15,6 +18,7 @@ class NewForm extends StatefulWidget {
 }
 
 class _NewFormState extends State<NewForm> {
+  final _shared = GetIt.I.get<SharedPreferencesHelper>();
   final step = 0.obs;
   RxBool canResend = true.obs;
   RxInt countdown = 60.obs;
@@ -289,6 +293,9 @@ class _NewFormState extends State<NewForm> {
                     _buildInfoRow("کد ملی", buyerInfo?["national_id"]),
                     const Divider(),
                     _buildInfoRow("شماره مبایل", buyerInfo?["mobile"]),
+                    const Divider(),
+                    _buildInfoRow(
+                        "باقیمانده اعتبار", buyerInfo?["credit"].toString()),
                   ],
                 ),
               ),
@@ -315,7 +322,7 @@ class _NewFormState extends State<NewForm> {
 
   Widget stepSellerSelection() {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _salesFormService.fetchSellers(buyerNationalId),
+      future: _salesFormService.fetchSellers(_shared.getString(USERNAME)),
       builder: (_, snapshot) {
         if (!snapshot.hasData) {
           return buildStepWrapper(
@@ -353,35 +360,141 @@ class _NewFormState extends State<NewForm> {
 
   Widget stepWarehouseSelection() {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _salesFormService.fetchWarehouses(sellerId),
+      future: _salesFormService.fetchWarehouses(
+          sellerId, _shared.getString(USERNAME)),
       builder: (_, snapshot) {
-        if (!snapshot.hasData)
+        // Show loading indicator
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return buildStepWrapper(
-              child: const Center(child: CircularProgressIndicator()));
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // Show error state
+        if (snapshot.hasError) {
+          return buildStepWrapper(
+            child: Column(
+              children: [
+                Icon(
+                  Icons.error_outline,
+                  size: 64,
+                  color: Colors.red.shade300,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  "خطا در دریافت اطلاعات انبارها",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.red.shade700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  snapshot.error.toString(),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: buildBackButton(() {
+                        // Handle back navigation - you might want to go to previous step
+                        // or reset the flow based on your app logic
+                        step.value--;
+                      }),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("تلاش مجدد"),
+                        onPressed: () {
+                          setState(() {
+                            // This will trigger the FutureBuilder to rebuild
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Show empty state
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return buildStepWrapper(
+            child: Column(
+              children: [
+                Icon(
+                  Icons.inventory_2_outlined,
+                  size: 64,
+                  color: Colors.grey.shade400,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "هیچ انباری یافت نشد",
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                buildBackButton(() {
+                  step.value--;
+                }),
+              ],
+            ),
+          );
+        }
+
+        // Data loaded successfully
         final data = snapshot.data!;
-        // Cache the warehouses data
         _warehousesCache = data;
 
         return buildStepWrapper(
           child: Column(
             children: [
               buildDropdown(
-                  label: "انتخاب انبار",
-                  data: data,
-                  value: warehouseId,
-                  onChanged: (v) => setState(() => warehouseId = v)),
+                label: "انتخاب انبار",
+                data: data,
+                value: warehouseId,
+                onChanged: (v) => setState(() => warehouseId = v),
+              ),
               const SizedBox(height: 20),
-              buildNextButton(() {
-                if (warehouseId == null || warehouseId!.isEmpty) {
-                  Fluttertoast.showToast(msg: "لطفا یک انبار انتخاب کنید");
-                  return;
-                }
-                step.value++;
-              }),
+              Row(
+                children: [
+                  Expanded(
+                    child: buildBackButton(() {
+                      step.value--;
+                    }),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: buildNextButton(() {
+                      if (warehouseId == null || warehouseId!.isEmpty) {
+                        Fluttertoast.showToast(
+                            msg: "لطفا یک انبار انتخاب کنید");
+                        return;
+                      }
+                      step.value++;
+                    }),
+                  ),
+                ],
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+// Add this method if you don't have it already
+  Widget buildBackButton(VoidCallback onPressed) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      child: const Text("بازگشت"),
     );
   }
 

@@ -119,17 +119,20 @@ class SalesFormService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchWarehouses(String? supplierId) async {
+  Future<List<Map<String, dynamic>>> fetchWarehouses(
+      String? supplierId, String? seller) async {
     try {
       final response = await _httpService.get(
-          "/api/method/get_warehouse_supplier?supplier_id=$supplierId&$credential");
+          "/api/method/get_warehouse_supplier?seller=$seller&upplier_id=$supplierId&$credential");
       _logger.i("Warehouses response: $response");
       final responseData = response?.data;
       if (responseData == null) throw Exception("پاسخ سرور خالی است");
 
       if (responseData.containsKey('message')) {
-        final Map<String, dynamic> message = responseData['message'];
-        if (message['code'] == 2000) {
+        final message = responseData['message'];
+
+        if (responseData['code'] == 2000) {
+          _logger.i("mammmad1");
           final List<dynamic> warehousesData = message['data'];
           return warehousesData.map((warehouse) {
             return {
@@ -140,8 +143,13 @@ class SalesFormService {
                   "نامشخص"
             };
           }).toList();
-        } else
+        } else if (responseData['code'] == 5000) {
+          _logger.i("mammmad2");
+          throw Exception("خطا در دریافت انبارها: ${message}");
+        } else {
+          _logger.i("mammmad3");
           throw Exception("خطا در دریافت انبارها: ${message['message']}");
+        }
       } else if (responseData.containsKey('result')) {
         final Map<String, dynamic> result = responseData['result'];
         if (result['code'] == 2000) {

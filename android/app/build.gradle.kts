@@ -24,7 +24,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = 35
         versionCode = 103
-        versionName = "4.1.9"
+        versionName = "6.1.1"
 //        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 //        multiDexEnabled = true
 //        isCoreLibraryDesugaringEnabled = true
