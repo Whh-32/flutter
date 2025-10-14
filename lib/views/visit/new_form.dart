@@ -1,6 +1,7 @@
 // lib/screens/new_form.dart
 import 'package:device_preview/device_preview.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:frappe_app/utils/constants.dart';
 import 'package:get/get.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -46,6 +47,234 @@ class _NewFormState extends State<NewForm> {
   // Cache for seller and warehouse data
   List<Map<String, dynamic>> _sellersCache = [];
   List<Map<String, dynamic>> _warehousesCache = [];
+
+  // Price calculation methods
+  double _calculateTotalPrice() {
+    double total = 0.0;
+
+    for (int i = 0; i < selectedItems.length; i++) {
+      final item = selectedItems[i];
+      final String itemId = item['id'];
+      final String uniqueKey = '${itemId}_$i';
+
+      final String? purchaseDoc = selectedDocuments[uniqueKey];
+      final String quantity = quantityControllers[uniqueKey]?.text ?? '0';
+
+      if (purchaseDoc != null && availableDocuments[uniqueKey] != null) {
+        try {
+          final document = availableDocuments[uniqueKey]!
+              .firstWhere((doc) => doc['id'] == purchaseDoc);
+
+          final double salePrice = double.tryParse(
+                  document['details']?['saleprice']?.toString() ?? '0') ??
+              0.0;
+          final int qty = int.tryParse(quantity) ?? 0;
+
+          total += salePrice * qty;
+        } catch (e) {
+          // Skip this item if there's an error
+        }
+      }
+    }
+
+    return total;
+  }
+
+  double _calculateRemainingCredit() {
+    final double currentCredit =
+        double.tryParse(buyerInfo?["credit"]?.toString() ?? '0') ?? 0.0;
+    final double totalPrice = _calculateTotalPrice();
+    return currentCredit - totalPrice;
+  }
+
+  String _formatPrice(double price) {
+    return price.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]},',
+        );
+  }
+
+  String? _getSalePrice(String uniqueKey, String? selectedDoc) {
+    if (selectedDoc == null) return null;
+
+    try {
+      final documents = availableDocuments[uniqueKey];
+      if (documents != null) {
+        final document = documents.firstWhere(
+          (doc) => doc['id'] == selectedDoc,
+          orElse: () => {},
+        );
+
+        if (document.isNotEmpty) {
+          final salePrice = document['details']?['saleprice']?.toString();
+          return salePrice != null
+              ? _formatPrice(double.parse(salePrice))
+              : null;
+        }
+      }
+    } catch (e) {
+      print('Error getting sale price: $e');
+    }
+
+    return null;
+  }
+
+  // New method to check if item can be added with quantity validation
+  bool _canAddItem(String itemId, String selectedDoc, int quantity) {
+    // Check if we already have this exact same item with same document
+    for (int i = 0; i < selectedItems.length; i++) {
+      final existingItem = selectedItems[i];
+      final existingItemId = existingItem['id'];
+      final existingUniqueKey = '${existingItemId}_$i';
+      final existingDoc = selectedDocuments[existingUniqueKey];
+
+      if (existingItemId == itemId && existingDoc == selectedDoc) {
+        // Same item and same document - we can merge
+        final existingQuantity =
+            int.tryParse(quantityControllers[existingUniqueKey]?.text ?? '0') ??
+                0;
+        final totalQuantity = existingQuantity + quantity;
+
+        // Check if total quantity exceeds available stock
+        final document = availableDocuments[existingUniqueKey]!
+            .firstWhere((doc) => doc['id'] == selectedDoc);
+        final availableStock = document['details']['remain_quantity'];
+
+        if (totalQuantity > availableStock) {
+          Fluttertoast.showToast(
+              msg:
+                  "مجموع تعداد ($totalQuantity) بیشتر از موجودی سند ($availableStock) است");
+          return false;
+        }
+        return true;
+      }
+    }
+
+    // New item or different document - check quantity against available stock
+    try {
+      final document =
+          docsForTemp.firstWhere((doc) => doc['id'] == selectedDoc);
+      final availableStock = document['details']['remain_quantity'];
+
+      if (quantity > availableStock) {
+        Fluttertoast.showToast(
+            msg: "تعداد ($quantity) بیشتر از موجودی سند ($availableStock) است");
+        return false;
+      }
+    } catch (e) {
+      // If we can't find the document, allow adding (shouldn't happen)
+      return true;
+    }
+
+    return true;
+  }
+
+  // New method to merge items with same itemId and document
+  void _mergeOrAddItem(
+      String itemId,
+      String quantity,
+      List<Map<String, dynamic>> items,
+      List<Map<String, dynamic>> docs,
+      String selectedDoc) {
+    final item = items.firstWhere((element) => element['id'] == itemId);
+    final newItem = Map<String, dynamic>.from(item);
+    final int newQuantity = int.tryParse(quantity) ?? 0;
+
+    // Check if we can add this item
+    if (!_canAddItem(itemId, selectedDoc, newQuantity)) {
+      return;
+    }
+
+    // Look for existing item with same ID and document to merge
+    bool merged = false;
+    for (int i = 0; i < selectedItems.length; i++) {
+      final existingItem = selectedItems[i];
+      final existingItemId = existingItem['id'];
+      final existingUniqueKey = '${existingItemId}_$i';
+      final existingDoc = selectedDocuments[existingUniqueKey];
+
+      if (existingItemId == itemId && existingDoc == selectedDoc) {
+        // Merge quantities
+        final existingQuantity =
+            int.tryParse(quantityControllers[existingUniqueKey]?.text ?? '0') ??
+                0;
+        final totalQuantity = existingQuantity + newQuantity;
+
+        setState(() {
+          quantityControllers[existingUniqueKey]?.text =
+              totalQuantity.toString();
+        });
+
+        merged = true;
+        Fluttertoast.showToast(msg: "تعداد کالا به $totalQuantity افزایش یافت");
+        break;
+      }
+    }
+
+    // If not merged, add as new item
+    if (!merged) {
+      final controller = TextEditingController(text: quantity);
+      final uniqueKey = '${itemId}_${selectedItems.length}';
+
+      setState(() {
+        selectedItems.add(newItem);
+        quantityControllers[uniqueKey] = controller;
+        availableDocuments[uniqueKey] = List<Map<String, dynamic>>.from(docs);
+        selectedDocuments[uniqueKey] = selectedDoc;
+      });
+
+      Fluttertoast.showToast(msg: "کالا با موفقیت اضافه شد");
+    }
+  }
+
+  // New method to get merged items for display
+  List<Map<String, dynamic>> _getMergedItemsForDisplay() {
+    final List<Map<String, dynamic>> mergedItems = [];
+    final Set<String> processedKeys = {};
+
+    for (int i = 0; i < selectedItems.length; i++) {
+      final item = selectedItems[i];
+      final String itemId = item['id'];
+      final String uniqueKey = '${itemId}_$i';
+
+      if (processedKeys.contains(uniqueKey)) continue;
+
+      // Find all items with same ID and document
+      final List<int> matchingIndexes = [];
+      String? currentDoc = selectedDocuments[uniqueKey];
+
+      for (int j = i; j < selectedItems.length; j++) {
+        final otherItem = selectedItems[j];
+        final otherItemId = otherItem['id'];
+        final otherUniqueKey = '${otherItemId}_$j';
+        final otherDoc = selectedDocuments[otherUniqueKey];
+
+        if (otherItemId == itemId && otherDoc == currentDoc) {
+          matchingIndexes.add(j);
+          processedKeys.add(otherUniqueKey);
+        }
+      }
+
+      // Calculate total quantity for merged item
+      int totalQuantity = 0;
+      for (int index in matchingIndexes) {
+        final itemId = selectedItems[index]['id'];
+        final uniqueKey = '${itemId}_$index';
+        final quantity =
+            int.tryParse(quantityControllers[uniqueKey]?.text ?? '0') ?? 0;
+        totalQuantity += quantity;
+      }
+
+      // Create merged item
+      final mergedItem = Map<String, dynamic>.from(item);
+      mergedItem['_mergedQuantity'] = totalQuantity;
+      mergedItem['_originalIndexes'] = matchingIndexes;
+      mergedItem['_document'] = currentDoc;
+      mergedItems.add(mergedItem);
+    }
+
+    return mergedItems;
+  }
 
   /// ------------------ Reusable Widgets ------------------
   Widget buildDropdown({
@@ -294,8 +523,8 @@ class _NewFormState extends State<NewForm> {
                     const Divider(),
                     _buildInfoRow("شماره مبایل", buyerInfo?["mobile"]),
                     const Divider(),
-                    _buildInfoRow(
-                        "باقیمانده اعتبار", buyerInfo?["credit"].toString()),
+                    _buildInfoRow("باقیمانده اعتبار",
+                        _formatPrice(buyerInfo?["credit"] ?? 0)),
                   ],
                 ),
               ),
@@ -561,14 +790,8 @@ class _NewFormState extends State<NewForm> {
                               return;
                             }
 
-                            if (q > remain) {
-                              Fluttertoast.showToast(
-                                  msg:
-                                      "تعداد وارد شده بیشتر از موجودی سند است");
-                              return;
-                            }
-
-                            _addItemWithDoc(
+                            // Use the new merge method instead of old add method
+                            _mergeOrAddItem(
                               tempItemId!,
                               tempQuantity!,
                               items,
@@ -576,7 +799,7 @@ class _NewFormState extends State<NewForm> {
                               selectedDocForTemp!,
                             );
 
-                            // Reset the dropdown - ADD THIS LINE
+                            // Reset the dropdown
                             _resetItemSelection();
                           },
                     child: const Text("افزودن کالا"),
@@ -592,13 +815,32 @@ class _NewFormState extends State<NewForm> {
             const Text("کالاهای انتخاب شده:",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            ...selectedItems.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return _buildSelectedItemCard(item, index);
-            }).toList(),
+            ..._buildMergedItemCards(),
             const SizedBox(height: 30),
-            const Divider(),
+            // const Divider(),
+            // نمایش جمع کل در این مرحله
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                border: Border.all(color: Colors.blue.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("جمع کل فعلی:",
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text("${_formatPrice(_calculateTotalPrice())} ریال",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.blue.shade800)),
+                ],
+              ),
+            ),
           ],
           const SizedBox(height: 20),
           TextField(
@@ -639,83 +881,165 @@ class _NewFormState extends State<NewForm> {
   List<Map<String, dynamic>> docsForTemp = [];
   String? selectedDocForTemp;
   bool isLoadingDocs = false;
-  String? _getSalePrice(String uniqueKey, String? selectedDoc) {
-    if (selectedDoc == null) return null;
 
-    try {
-      final documents = availableDocuments[uniqueKey];
-      if (documents != null) {
-        final document = documents.firstWhere(
-          (doc) => doc['id'] == selectedDoc,
-          orElse: () => {},
-        );
+  /// New method to build merged item cards
+  List<Widget> _buildMergedItemCards() {
+    final mergedItems = _getMergedItemsForDisplay();
 
-        if (document.isNotEmpty) {
-          final salePrice = document['details']?['saleprice']?.toString();
-          return salePrice != null ? _formatPrice(salePrice) : null;
+    return mergedItems.map((mergedItem) {
+      final String itemName =
+          mergedItem['title'] ?? mergedItem['name'] ?? "کالا";
+      final int totalQuantity = mergedItem['_mergedQuantity'];
+      final String? document = mergedItem['_document'];
+      final List<int> originalIndexes = mergedItem['_originalIndexes'] ?? [];
+
+      // Calculate price for this merged item
+      double unitPrice = 0.0;
+      double totalPrice = 0.0;
+
+      if (originalIndexes.isNotEmpty) {
+        final firstIndex = originalIndexes.first;
+        final itemId = selectedItems[firstIndex]['id'];
+        final uniqueKey = '${itemId}_$firstIndex';
+        unitPrice = double.tryParse(
+                _getSalePrice(uniqueKey, document)?.replaceAll(',', '') ??
+                    '0') ??
+            0.0;
+        totalPrice = unitPrice * totalQuantity;
+      }
+
+      return buildStepWrapper(
+        child: ListTile(
+          title: Text(itemName),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("تعداد کل: $totalQuantity"),
+              Text("سند: ${document ?? 'انتخاب نشده'}"),
+              Text("قیمت واحد: ${_formatPrice(unitPrice)} ریال"),
+              Text("جمع: ${_formatPrice(totalPrice)} ریال",
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green.shade700)),
+              if (originalIndexes.length > 1)
+                Text("${originalIndexes.length} بار اضافه شده",
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.orange.shade700)),
+            ],
+          ),
+          trailing: IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: () => _removeMergedItem(originalIndexes),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  /// Fixed method to remove merged item (all instances)
+  void _removeMergedItem(List<int> indexes) {
+    setState(() {
+      // Remove items in reverse order to maintain index integrity
+      indexes.sort((a, b) => b.compareTo(a)); // Sort descending
+
+      // Store data to remove
+      final itemsToRemove = <Map<String, dynamic>>[];
+      final keysToRemove = <String>[];
+
+      for (int index in indexes) {
+        if (index >= 0 && index < selectedItems.length) {
+          final item = selectedItems[index];
+          final String itemId = item['id'];
+          final String uniqueKey = '${itemId}_$index';
+
+          itemsToRemove.add(item);
+          keysToRemove.add(uniqueKey);
         }
       }
-    } catch (e) {
-      print('Error getting sale price: $e');
+
+      // Remove items from selectedItems
+      for (var item in itemsToRemove) {
+        selectedItems.remove(item);
+      }
+
+      // Remove associated data
+      for (var uniqueKey in keysToRemove) {
+        quantityControllers.remove(uniqueKey)?.dispose();
+        selectedDocuments.remove(uniqueKey);
+        availableDocuments.remove(uniqueKey);
+      }
+
+      // Rebuild the keys for remaining items
+      _rebuildItemKeys();
+    });
+
+    Fluttertoast.showToast(msg: "کالا حذف شد");
+  }
+
+  /// Fixed method to rebuild item keys after removal
+  void _rebuildItemKeys() {
+    // Create temporary maps to hold the data
+    final tempQuantityControllers = <String, TextEditingController>{};
+    final tempSelectedDocuments = <String, String?>{};
+    final tempAvailableDocuments = <String, List<Map<String, dynamic>>>{};
+
+    // Store all current data with their original keys
+    for (int i = 0; i < selectedItems.length; i++) {
+      final item = selectedItems[i];
+      final String itemId = item['id'];
+
+      // Try to find the existing data for this item
+      bool found = false;
+
+      // Look for existing data with matching item ID
+      for (final oldKey in quantityControllers.keys) {
+        if (oldKey.startsWith('${itemId}_')) {
+          final newKey = '${itemId}_$i';
+          tempQuantityControllers[newKey] = quantityControllers[oldKey]!;
+          found = true;
+          break;
+        }
+      }
+
+      for (final oldKey in selectedDocuments.keys) {
+        if (oldKey.startsWith('${itemId}_')) {
+          final newKey = '${itemId}_$i';
+          tempSelectedDocuments[newKey] = selectedDocuments[oldKey];
+          found = true;
+          break;
+        }
+      }
+
+      for (final oldKey in availableDocuments.keys) {
+        if (oldKey.startsWith('${itemId}_')) {
+          final newKey = '${itemId}_$i';
+          tempAvailableDocuments[newKey] = availableDocuments[oldKey]!;
+          found = true;
+          break;
+        }
+      }
+
+      // If no existing data found, create new empty data (shouldn't happen)
+      if (!found) {
+        final newKey = '${itemId}_$i';
+        tempQuantityControllers[newKey] = TextEditingController(text: '0');
+        tempSelectedDocuments[newKey] = null;
+        tempAvailableDocuments[newKey] = [];
+      }
     }
 
-    return null;
-  }
-
-  String _formatPrice(String price) {
-    // Format price with commas for thousands
-    final number = int.tryParse(price);
-    if (number != null) {
-      return number.toString().replaceAllMapped(
-            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-            (Match m) => '${m[1]},',
-          );
+    // Dispose of any controllers that are no longer needed
+    for (final oldKey in quantityControllers.keys) {
+      if (!tempQuantityControllers.containsKey(oldKey)) {
+        quantityControllers[oldKey]?.dispose();
+      }
     }
-    return price;
-  }
 
-  /// کارت نمایش کالای انتخاب‌شده
-  Widget _buildSelectedItemCard(Map<String, dynamic> item, int index) {
-    // Use a unique key for each item to prevent issues
-    final String uniqueKey = '${item['id']}_$index';
-    final String? selectedDoc = selectedDocuments[uniqueKey];
-    final controller = quantityControllers[uniqueKey];
-
-    return buildStepWrapper(
-      child: ListTile(
-        title: Text(item['title'] ?? item['name'] ?? "کالا"),
-        subtitle: Text(
-            "تعداد: ${controller?.text ?? '-'}\nسند: ${selectedDoc ?? 'انتخاب نشده'} \nقیمت فروش: ${_getSalePrice(uniqueKey, selectedDoc) ?? 'نامشخص'}"),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          onPressed: () => _removeItem(uniqueKey, index),
-        ),
-      ),
-    );
-  }
-
-  /// اضافه کردن کالا همراه سند انتخابی
-  void _addItemWithDoc(
-      String itemId,
-      String quantity,
-      List<Map<String, dynamic>> items,
-      List<Map<String, dynamic>> docs,
-      String selectedDoc) {
-    final item = items.firstWhere((element) => element['id'] == itemId);
-
-    // Create a new map to avoid reference issues
-    final newItem = Map<String, dynamic>.from(item);
-
-    final controller = TextEditingController(text: quantity);
-
-    // Use a unique key for each item (itemId + index)
-    final uniqueKey = '${itemId}_${selectedItems.length}';
-
+    // Replace the old maps with new ones
     setState(() {
-      selectedItems.add(newItem);
-      quantityControllers[uniqueKey] = controller;
-      availableDocuments[uniqueKey] = List<Map<String, dynamic>>.from(docs);
-      selectedDocuments[uniqueKey] = selectedDoc;
+      quantityControllers = Map.from(tempQuantityControllers);
+      selectedDocuments = Map.from(tempSelectedDocuments);
+      availableDocuments = Map.from(tempAvailableDocuments);
     });
   }
 
@@ -727,45 +1051,12 @@ class _NewFormState extends State<NewForm> {
       }
 
       // Remove associated data using the unique key
-      quantityControllers.remove(uniqueKey);
+      quantityControllers.remove(uniqueKey)?.dispose();
       selectedDocuments.remove(uniqueKey);
       availableDocuments.remove(uniqueKey);
 
       // Rebuild the keys for remaining items to maintain consistency
       _rebuildItemKeys();
-    });
-  }
-
-  void _rebuildItemKeys() {
-    // Create new maps for the remaining items
-    final newQuantityControllers = <String, TextEditingController>{};
-    final newSelectedDocuments = <String, String?>{};
-    final newAvailableDocuments = <String, List<Map<String, dynamic>>>{};
-
-    for (int i = 0; i < selectedItems.length; i++) {
-      final item = selectedItems[i];
-      final oldKey = '${item['id']}_$i'; // Try to reconstruct the old key
-      final newKey = '${item['id']}_$i'; // New key with updated index
-
-      // Transfer data to new maps with new keys
-      if (quantityControllers.containsKey(oldKey)) {
-        newQuantityControllers[newKey] = quantityControllers[oldKey]!;
-      }
-
-      if (selectedDocuments.containsKey(oldKey)) {
-        newSelectedDocuments[newKey] = selectedDocuments[oldKey];
-      }
-
-      if (availableDocuments.containsKey(oldKey)) {
-        newAvailableDocuments[newKey] = availableDocuments[oldKey]!;
-      }
-    }
-
-    // Replace the old maps with new ones
-    setState(() {
-      quantityControllers = newQuantityControllers;
-      selectedDocuments = newSelectedDocuments;
-      availableDocuments = newAvailableDocuments;
     });
   }
 
@@ -860,7 +1151,6 @@ class _NewFormState extends State<NewForm> {
             ),
             const SizedBox(height: 16),
 
-            // Buyer info
             buildStepWrapper(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -901,6 +1191,32 @@ class _NewFormState extends State<NewForm> {
 
             const SizedBox(height: 12),
 
+            // Buyer info
+            buildStepWrapper(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("اطلاعات مالی",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _buildSummaryRow("اعتبار فعلی",
+                        "${_formatPrice(buyerInfo?["credit"] ?? 0)} ریال"),
+                    _buildSummaryRow("جمع فاکتور",
+                        "${_formatPrice(_calculateTotalPrice())} ریال"),
+                    _buildSummaryRow("باقیمانده اعتبار",
+                        "${_formatPrice(_calculateRemainingCredit())} ریال",
+                        color: _calculateRemainingCredit() < 0
+                            ? Colors.red
+                            : null),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             // Items
             buildStepWrapper(
               child: Padding(
@@ -910,6 +1226,7 @@ class _NewFormState extends State<NewForm> {
                   children: [
                     const Text("کالاهای انتخابی",
                         style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
                     ..._buildItemsSummary(),
                   ],
                 ),
@@ -1025,7 +1342,7 @@ class _NewFormState extends State<NewForm> {
       );
 
 // Helper method for summary rows
-  Widget _buildSummaryRow(String label, String value) {
+  Widget _buildSummaryRow(String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -1037,7 +1354,10 @@ class _NewFormState extends State<NewForm> {
           ),
           Expanded(
             flex: 3,
-            child: Text(value),
+            child: Text(value,
+                style: color != null
+                    ? TextStyle(color: color, fontWeight: FontWeight.bold)
+                    : null),
           ),
         ],
       ),
@@ -1046,48 +1366,110 @@ class _NewFormState extends State<NewForm> {
 
 // Helper method to build items summary
   List<Widget> _buildItemsSummary() {
-    if (selectedItems.isEmpty) {
+    final mergedItems = _getMergedItemsForDisplay();
+
+    if (mergedItems.isEmpty) {
       return [const Text("هیچ کالایی انتخاب نشده")];
     }
 
-    return selectedItems.asMap().entries.map((entry) {
-      final index = entry.key;
-      final item = entry.value;
-      final String itemId = item['id'];
-      final String uniqueKey = '${itemId}_$index';
+    final List<Widget> itemWidgets = [];
+    double totalPrice = 0.0;
 
-      final String? purchaseDoc = selectedDocuments[uniqueKey];
-      final String quantity = quantityControllers[uniqueKey]?.text ?? '0';
-      final String itemName = item['title'] ?? item['name'] ?? "کالا";
+    // Build individual items
+    itemWidgets.addAll(mergedItems.map((mergedItem) {
+      final String itemName =
+          mergedItem['title'] ?? mergedItem['name'] ?? "کالا";
+      final int totalQuantity = mergedItem['_mergedQuantity'];
+      final String? document = mergedItem['_document'];
+      final List<int> originalIndexes = mergedItem['_originalIndexes'] ?? [];
+
+      // Calculate price for this merged item
+      double unitPrice = 0.0;
+      double itemTotal = 0.0;
+
+      if (originalIndexes.isNotEmpty) {
+        final firstIndex = originalIndexes.first;
+        final itemId = selectedItems[firstIndex]['id'];
+        final uniqueKey = '${itemId}_$firstIndex';
+        unitPrice = double.tryParse(
+                _getSalePrice(uniqueKey, document)?.replaceAll(',', '') ??
+                    '0') ??
+            0.0;
+        itemTotal = unitPrice * totalQuantity;
+        totalPrice += itemTotal;
+      }
 
       String docInfo = "سند نامشخص";
-      if (purchaseDoc != null && availableDocuments[uniqueKey] != null) {
+      if (document != null) {
         try {
-          final document = availableDocuments[uniqueKey]!
-              .firstWhere((doc) => doc['id'] == purchaseDoc);
-          docInfo = "سند: ${document['name'] ?? purchaseDoc}";
+          final firstIndex = originalIndexes.first;
+          final itemId = selectedItems[firstIndex]['id'];
+          final uniqueKey = '${itemId}_$firstIndex';
+          final doc = availableDocuments[uniqueKey]!
+              .firstWhere((doc) => doc['id'] == document);
+          docInfo = "سند: ${doc['name'] ?? document}";
         } catch (e) {
-          docInfo = "سند: $purchaseDoc";
+          docInfo = "سند: $document";
         }
       }
 
       return Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.only(top: 5),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(itemName, style: TextStyle(fontWeight: FontWeight.w500)),
-            const SizedBox(height: 4),
-            Text("تعداد: $quantity"),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(itemName, style: TextStyle(fontWeight: FontWeight.w500)),
+                Text("${_formatPrice(itemTotal)} ریال",
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green.shade700)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text("تعداد: $totalQuantity"),
+            const SizedBox(height: 6),
             Text(docInfo),
+            const SizedBox(height: 6),
+            Text("قیمت واحد: ${_formatPrice(unitPrice)} ریال"),
           ],
         ),
       );
-    }).toList();
+    }).toList());
+
+    // Add total price at the end
+    itemWidgets.add(
+      Container(
+        margin: const EdgeInsets.only(top: 16, bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          border: Border.all(color: Colors.blue.shade200),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("جمع کل فاکتور:",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("${_formatPrice(totalPrice)} ریال",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.blue.shade800)),
+          ],
+        ),
+      ),
+    );
+
+    return itemWidgets;
   }
 
 // Helper methods to get seller and warehouse names
@@ -1190,5 +1572,20 @@ class _NewFormState extends State<NewForm> {
         }
       }),
     );
+  }
+
+  @override
+  void dispose() {
+    // Dispose all controllers to prevent memory leaks
+    nationalIdController.dispose();
+    tempQuantityController.dispose();
+
+    // Dispose all quantity controllers
+    for (final controller in quantityControllers.values) {
+      controller.dispose();
+    }
+
+    _timer?.cancel();
+    super.dispose();
   }
 }
